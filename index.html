@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MONEY TRAP 2070 — Ronin VII &amp; Jarron X</title>
+<style>
+  html,body{margin:0;height:100%;background:#05050a;overflow:hidden;font-family:'Courier New',monospace}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+  canvas{image-rendering:pixelated;image-rendering:crisp-edges;background:#0b0b12;box-shadow:0 0 40px #00ff6633;outline:none}
+  #hint{position:fixed;bottom:4px;left:0;right:0;text-align:center;color:#3a6;font-size:11px;letter-spacing:1px;pointer-events:none;opacity:.7}
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="game" width="960" height="540" tabindex="0"></canvas></div>
+<audio id="bgm" loop preload="auto">
+  <source src="assets/money-trap-theme.m4a" type="audio/mp4">
+  <source src="assets/money-trap-theme.mp3" type="audio/mpeg">
+</audio>
+<script src="game.js"></script>
+</body>
+</html>
