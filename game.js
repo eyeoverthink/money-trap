@@ -8,6 +8,20 @@ const ctx = cv.getContext('2d');
 const W = 960, H = 540, T = 32;
 ctx.imageSmoothingEnabled = false;
 
+/* ---------------- SPRITE ATLAS (tools/build_sprites.py → assets/sprites/atlas.png + sprites.js) ---------------- */
+const ATLAS = window.MT_ATLAS || null;
+const atlasImg = new Image(); let atlasReady = false;
+if (ATLAS) { atlasImg.onload = () => { atlasReady = true; }; atlasImg.src = 'assets/sprites/atlas.png'; }
+// draw a frame anchored at its feet (x = centre of feet, y = ground line); flip mirrors around the anchor
+function spr(name, x, y, flip, sc, sy) {
+  const f = ATLAS && atlasReady && ATLAS[name]; if (!f) return false;
+  sc = sc || 1; const scy = sy || sc;
+  ctx.save(); ctx.translate(Math.round(x), Math.round(y)); if (flip) ctx.scale(-1, 1);
+  ctx.drawImage(atlasImg, f.x, f.y, f.w, f.h, Math.round(-f.ax * sc), Math.round(-f.ay * scy), Math.round(f.w * sc), Math.round(f.h * scy));
+  ctx.restore(); return true;
+}
+function sprH(name) { return ATLAS && ATLAS[name] ? ATLAS[name].h : 0; }
+
 function fit() {
   const s = Math.min(window.innerWidth / W, window.innerHeight / H);
   const k = s >= 1 ? Math.floor(s * 4) / 4 : s;
@@ -530,14 +544,37 @@ function buildTiles(key) {
   if (TILE[key]) return;
   const th = THEMES[key];
   const mk = (fn) => { const c = document.createElement('canvas'); c.width = T; c.height = T; fn(c.getContext('2d')); return c; };
+  const shade = (hex, f) => { const n = parseInt(hex.slice(1), 16); let r = n >> 16, g = (n >> 8) & 255, b = n & 255; const c = v => Math.max(0, Math.min(255, Math.round(f > 0 ? v + (255 - v) * f : v * (1 + f)))); return 'rgb(' + c(r) + ',' + c(g) + ',' + c(b) + ')'; };
+  const R = rnd(key.length * 7919);
   const body = mk(g => {
-    g.fillStyle = th.ground; g.fillRect(0, 0, T, T); g.fillStyle = th.line;
-    if (th.name === 'brick' || th.name === 'wood') { g.fillRect(0, 15, T, 2); g.fillRect(0, 31, T, 1); g.fillRect(15, 0, 2, 15); g.fillRect(6, 17, 2, 14); g.fillRect(24, 17, 2, 14); }
-    else if (th.name === 'girder' || th.name === 'vault') { g.strokeStyle = th.line; g.lineWidth = 3; g.beginPath(); g.moveTo(0, 0); g.lineTo(T, T); g.moveTo(T, 0); g.lineTo(0, T); g.stroke(); g.strokeRect(1, 1, T - 2, T - 2); }
-    else if (th.name === 'neon' || th.name === 'glass' || th.name === 'steel') { g.fillRect(0, 0, T, 1); g.fillRect(0, 0, 1, T); g.fillStyle = 'rgba(255,255,255,.05)'; g.fillRect(4, 4, 10, 10); g.fillStyle = th.top + '33'; g.fillRect(18, 18, 8, 8); }
-    else { g.fillRect(0, 31, T, 1); g.fillRect(31, 0, 1, T); g.fillStyle = 'rgba(255,255,255,.04)'; g.fillRect(5, 9, 3, 2); g.fillRect(20, 22, 4, 2); }
+    g.fillStyle = th.ground; g.fillRect(0, 0, T, T);
+    for (let i = 0; i < 46; i++) { g.fillStyle = R() < 0.5 ? shade(th.ground, 0.08) : shade(th.ground, -0.18); g.fillRect(Math.floor(R() * 16) * 2, Math.floor(R() * 16) * 2, 2, 2); } // dithered grain
+    const hi = shade(th.ground, 0.22), lo = shade(th.ground, -0.45);
+    if (th.name === 'brick' || th.name === 'wood') {
+      const rows = th.name === 'wood' ? [0, 8, 16, 24] : [0, 16];
+      rows.forEach((ry, i) => { const h = th.name === 'wood' ? 8 : 16; const offs = th.name === 'wood' ? [(i * 11) % 32] : (i ? [8, 24] : [0, 16]);
+        g.fillStyle = hi; g.fillRect(0, ry, T, 1); g.fillStyle = lo; g.fillRect(0, ry + h - 2, T, 2);
+        offs.forEach(ox => { g.fillStyle = lo; g.fillRect(ox, ry, 2, h); g.fillStyle = hi; g.fillRect(ox + 2, ry + 1, 1, h - 3); }); });
+    } else if (th.name === 'girder' || th.name === 'vault') {
+      g.fillStyle = lo; g.fillRect(0, 0, T, 3); g.fillRect(0, T - 3, T, 3);
+      g.strokeStyle = shade(th.top, -0.35); g.lineWidth = 3; g.beginPath(); g.moveTo(2, 3); g.lineTo(T - 2, T - 3); g.moveTo(T - 2, 3); g.lineTo(2, T - 3); g.stroke();
+      g.fillStyle = hi; g.fillRect(0, 3, T, 1);
+      [[3, 6], [T - 6, 6], [3, T - 8], [T - 6, T - 8]].forEach(([rx, ry]) => { g.fillStyle = shade(th.top, -0.1); g.fillRect(rx, ry, 3, 3); g.fillStyle = '#fff8'; g.fillRect(rx, ry, 1, 1); });
+    } else if (th.name === 'neon' || th.name === 'glass' || th.name === 'steel') {
+      g.fillStyle = hi; g.fillRect(0, 0, T, 1); g.fillRect(0, 0, 1, T); g.fillStyle = lo; g.fillRect(0, T - 2, T, 2); g.fillRect(T - 2, 0, 2, T);
+      g.fillStyle = 'rgba(255,255,255,.07)'; g.beginPath(); g.moveTo(3, 3); g.lineTo(14, 3); g.lineTo(3, 14); g.fill();
+      g.fillStyle = th.top + '55'; g.fillRect(6, 15, 20, 2); g.fillStyle = th.top + '22'; g.fillRect(6, 19, 20, 6);
+    } else {
+      g.fillStyle = lo; g.fillRect(0, T - 2, T, 2); g.fillRect(T - 2, 0, 2, T); g.fillStyle = hi; g.fillRect(0, 0, T, 1); g.fillRect(0, 0, 1, T);
+      g.fillStyle = lo; g.fillRect(8, 10, 6, 1); g.fillRect(13, 11, 1, 5); g.fillRect(20, 22, 7, 1); // cracks
+    }
   });
-  const top = mk(g => { g.drawImage(body, 0, 0); g.fillStyle = th.top; g.fillRect(0, 0, T, 5); g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(0, 0, T, 1); g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(0, 5, T, 2); });
+  const top = mk(g => {
+    g.drawImage(body, 0, 0); g.fillStyle = shade(th.top, -0.35); g.fillRect(0, 0, T, 7); g.fillStyle = th.top; g.fillRect(0, 0, T, 5);
+    g.fillStyle = shade(th.top, 0.45); g.fillRect(0, 0, T, 1); for (let x = 2; x < T; x += 8) { g.fillStyle = shade(th.top, 0.25); g.fillRect(x, 2, 3, 1); }
+    g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(0, 7, T, 2);
+    if (th.name === 'neon' || th.name === 'glass' || th.name === 'steel') { g.fillStyle = th.top; g.globalAlpha = 0.35; g.fillRect(0, 7, T, 4); g.globalAlpha = 1; }
+  });
   TILE[key] = { body, top };
 }
 function tileAt(tx, ty) { const L = S.level; if (tx < 0 || tx >= L.w) return '#'; if (ty < 0 || ty >= L.h) return '.'; return L.grid[ty][tx]; }
@@ -549,7 +586,7 @@ function boxHitsTile(P, tx, ty) { return overlap(P, { x: tx * T, y: ty * T, w: T
 
 /* ---------------- ABILITIES ---------------- */
 function placeStack(tx, ty) {
-  S.level.grid[ty][tx] = 'C'; S.stats.stacks++;
+  S.level.grid[ty][tx] = 'C'; S.stats.stacks++; S.p.act = 'stack'; S.p.actT = 14;
   burst(tx * T + 16, ty * T + 16, '#ffd84a', 16, 2.5); SFX.stack();
 }
 function doStack() {
@@ -588,7 +625,7 @@ function doThrow() {
   const P = S.p; if (P.throwCD > 0) return;
   const ron = S.hero === 'ronin', cost = ron ? 15 : 25;
   if (!spend(cost)) return;
-  P.throwCD = 16; SFX.throw();
+  P.throwCD = 16; SFX.throw(); P.act = 'throw'; P.actT = 12;
   const up = down(...K.up);
   S.shots.push({ x: P.x + 11 + P.face * 14, y: P.y + 16, vx: P.face * (ron ? 9 : 7), vy: ron && up ? -6.5 : (up ? -3 : 0), kind: ron ? 'coin' : 'plane', dmg: ron ? 1 : 2, life: ron ? 110 : 220, face: P.face });
 }
@@ -749,6 +786,7 @@ function updatePlay() {
   if (hit(...K.borrow)) borrow();
   if (hit(...K.beg)) beg();
   if (P.throwCD > 0) P.throwCD--;
+  if (P.actT > 0) P.actT--;
   if (P.inv > 0) P.inv--;
 
   updateWorld();
@@ -917,8 +955,9 @@ function updateBoss() {
   if (B.t % (ph2 ? 75 : 110) === 0) {
     const a0 = Math.atan2(P.y + 20 - B.y, P.x + 11 - B.x);
     for (let k = -1; k <= 1; k++) S.bshots.push({ x: B.x, y: B.y + 30, vx: Math.cos(a0 + k * 0.25) * (ph2 ? 3.8 : 3.1), vy: Math.sin(a0 + k * 0.25) * (ph2 ? 3.8 : 3.1), kind: 'coin', life: 300 });
-    SFX.boss();
+    SFX.boss(); B.atkT = 30;
   }
+  if (B.atkT > 0) B.atkT--;
   if (B.t % 240 === 120) for (let k = 0; k < 4; k++) S.bshots.push({ x: 50 + Math.random() * 860, y: -10 - k * 40, vx: 0, vy: 2.4, kind: 'contract', life: 400 });
   if (ph2 && B.t % 600 === 300 && S.level.ents.filter(e => e.type === 'devil' && e.alive).length < 3) {
     const x = 3 + Math.floor(Math.random() * 18); S.level.devil(x, Math.min(27, x + 6), 14); burst(x * T + 16, 13 * T, '#ff2244', 20, 3);
@@ -989,7 +1028,9 @@ function drawTiles() {
     } else if (c === '^') { ctx.fillStyle = '#ff2244'; for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.moveTo(sx + k * 8, sy + T); ctx.lineTo(sx + k * 8 + 4, sy + 12); ctx.lineTo(sx + k * 8 + 8, sy + T); ctx.fill(); } }
   }
 }
-function drawNPC(x, y, kind, label, t) {
+function drawNPC(x, y, kind, label, t, face) {
+  const map = { beg: 'beggar', hire: 'worker', dealer: 'dealer', fence: 'thief', merchant: 'merchant' };
+  if (spr(map[kind], x + 14, y + 46 + (Math.floor(t / 36) % 2 && kind !== 'merchant' ? 0 : 0), face === -1)) return;
   const col = { beg: '#8a7a6a', hire: '#ff9a2a', dealer: '#ff3fa4' }[kind] || '#888';
   ctx.fillStyle = '#6a4024'; ctx.fillRect(x + 8, y + 2, 12, 12);
   ctx.fillStyle = kind === 'hire' ? '#ffb000' : '#222'; ctx.fillRect(x + 6, y - 2, 16, 6);
@@ -1000,13 +1041,34 @@ function drawNPC(x, y, kind, label, t) {
 }
 function drawStation(e) {
   const x = Math.round(e.x - S.cam.x), y = Math.round(e.y - S.cam.y);
-  if (e.npc) { drawNPC(x, y, e.dealer ? 'dealer' : 'beg', e.label, tick); txt(e.label || 'ASK', x + 14, y - 12, '#ffd84a', 11, 'center', true); return; }
+  if (e.npc) { drawNPC(x, y, e.dealer ? 'dealer' : (e.label === 'FENCE' ? 'fence' : 'beg'), e.label, tick, S.p && S.p.x < e.x ? -1 : 1); txt(e.label || 'ASK', x + 14, y - 12, '#ffd84a', 11, 'center', true); return; }
   const meta = {
     hustle: ['#00ff66', 'GIG', '📦'], atm: ['#00f3ff', 'ATM', '$'], gamble: ['#ff3fa4', e.label || 'BET', '⚂'], invest: ['#00f3ff', e.label || 'INVEST', '↗'],
     hire: ['#ff9a2a', 'HIRE', '⚒'], barter: ['#ffb03a', 'BARTER', '⇄'], steal: ['#ff4466', e.label || 'STEAL', '✋'], cab: ['#00f3ff', 'CAB $90', '🚕'], toll: ['#ff3fa4', 'TOLL', '$'],
   }[e.kind] || ['#fff', '?', '?'];
   const col = meta[0];
   if (e.kind === 'steal' && e.used) { ctx.globalAlpha = 0.35; }
+  const propMap = { atm: 'atm', gamble: 'slot', invest: 'kiosk' };
+  if (propMap[e.kind] && sprH(propMap[e.kind])) {
+    ctx.shadowColor = col; ctx.shadowBlur = 10 + Math.sin(tick * 0.08) * 4; spr(propMap[e.kind], x + e.w / 2, y + e.h); ctx.shadowBlur = 0;
+    txt(meta[1], x + e.w / 2, y - 8, col, 11, 'center', true); ctx.globalAlpha = 1; return;
+  }
+  if (e.kind === 'barter' && sprH('stall')) {
+    spr('stall', x + e.w / 2, y + e.h); spr('merchant', x + e.w / 2 + 34, y + e.h, true);
+    txt('BARTER STALL', x + e.w / 2, y - 36, col, 11, 'center', true); return;
+  }
+  if (e.kind === 'cab' && sprH('taxi')) {
+    const bob = Math.sin(tick * 0.08) * 3;
+    ctx.fillStyle = 'rgba(0,243,255,' + (0.18 + Math.sin(tick * 0.2) * 0.08) + ')'; ctx.beginPath(); ctx.ellipse(x + 20, y + e.h, 40, 6, 0, 0, 7); ctx.fill();
+    spr('taxi', x + 20, y + e.h - 6 + bob); txt('FLYING CAB', x + 20, y - 10, col, 11, 'center', true); return;
+  }
+  if (e.kind === 'hire' && sprH('worker')) {
+    ctx.fillStyle = '#2a2a36'; ctx.fillRect(x + 4, y + 18, 30, 34); ctx.strokeStyle = '#ff9a2a'; ctx.lineWidth = 2; ctx.strokeRect(x + 4, y + 18, 30, 34);
+    ctx.fillStyle = S.worker > 0 ? '#00ff66' : '#ff2244'; ctx.fillRect(x + 9, y + 24, 7, 7);
+    ctx.fillStyle = '#888'; ctx.fillRect(x + 24, y + 22, 3, 16); ctx.fillStyle = S.worker > 0 ? '#00ff66' : '#ffb000'; ctx.fillRect(x + 21, S.worker > 0 ? y + 34 : y + 18, 9, 6);
+    spr('worker', S.worker > 0 ? x + 48 : x - 16, y + e.h, S.worker > 0);
+    txt('HIRE CREW', x + 20, y - 8, col, 11, 'center', true); return;
+  }
   if (e.kind === 'cab') {
     const bob = Math.sin(tick * 0.08) * 3;
     ctx.fillStyle = '#ffd000'; ctx.fillRect(x - 10, y + 14 + bob, 60, 20); ctx.fillStyle = '#222'; ctx.fillRect(x, y + 6 + bob, 36, 12); ctx.fillStyle = '#00f3ff'; ctx.fillRect(x + 4, y + 8 + bob, 12, 8); ctx.fillRect(x + 20, y + 8 + bob, 12, 8);
@@ -1029,7 +1091,7 @@ function drawStation(e) {
   }
   ctx.globalAlpha = 1;
 }
-function drawBossSprite(B) {
+function drawBossProcedural(B) {
   const x = Math.round(B.x - S.cam.x), y = Math.round(B.y - S.cam.y), f = B.flash > 0 && B.flash % 2;
   ctx.save(); ctx.translate(x, y);
   ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 30;
@@ -1050,14 +1112,57 @@ function drawBossSprite(B) {
   ctx.fillStyle = '#1a0a0a'; ctx.fillRect(-40, 60, 30, 10); ctx.fillRect(10, 60, 30, 10);
   ctx.restore();
 }
+function drawBossSprite(B) {
+  if (!sprH('boss_idle')) return drawBossProcedural(B);
+  const x = B.x - S.cam.x, y = B.y - S.cam.y, ph2 = B.hp <= B.max / 2;
+  const fr = B.dead ? 'boss_rage' : (B.atkT > 0 ? 'boss_attack' : (ph2 ? 'boss_rage' : 'boss_idle'));
+  const flip = (fr === 'boss_attack') ? (S.p.x < B.x) : false;
+  const feet = y + 88 + Math.sin(tick * 0.06) * 4;
+  // swirling coin & contract aura
+  for (let i = 0; i < 10; i++) {
+    const a = tick * (ph2 ? 0.05 : 0.03) + i * Math.PI / 5, rx = 78, ry = 34, cx = x + Math.cos(a) * rx, cy = y + 10 + Math.sin(a) * ry;
+    if (Math.sin(a) < 0) continue; // back half drawn later? keep it simple: front half only
+    if (i % 3 === 0) { ctx.fillStyle = '#f0e0b0'; ctx.fillRect(cx - 5, cy - 7, 10, 13); ctx.fillStyle = '#c8102e'; ctx.fillRect(cx - 3, cy + 2, 6, 2); }
+    else spr('coin', cx, cy + 6, false, 0.6 * Math.max(0.2, Math.abs(Math.cos(a * 2))), 0.6);
+  }
+  ctx.save();
+  ctx.shadowColor = ph2 ? '#ff2244' : '#ff4466'; ctx.shadowBlur = 24 + Math.sin(tick * 0.15) * 8;
+  spr(fr, x, feet, flip);
+  ctx.restore();
+  if (B.flash > 0) { ctx.globalAlpha = 0.85; spr(fr + '_flash', x, feet, flip); ctx.globalAlpha = 1; }
+  for (let i = 0; i < 10; i++) {
+    const a = tick * (ph2 ? 0.05 : 0.03) + i * Math.PI / 5, cx = x + Math.cos(a) * 78, cy = y + 10 + Math.sin(a) * 34;
+    if (Math.sin(a) >= 0) continue;
+    if (i % 3 === 0) { ctx.fillStyle = '#f0e0b0'; ctx.fillRect(cx - 5, cy - 7, 10, 13); ctx.fillStyle = '#c8102e'; ctx.fillRect(cx - 3, cy + 2, 6, 2); }
+    else spr('coin', cx, cy + 6, false, 0.6 * Math.max(0.2, Math.abs(Math.cos(a * 2))), 0.6);
+  }
+}
+function heroFrame(P) {
+  const k = S.hero;
+  if (P.actT > 0 && P.act === 'stack' && k === 'ronin') return 'ronin_stack';
+  if (P.actT > 0 && P.act === 'throw') return k + '_throw';
+  if (k === 'jarron' && P.glide > 0) return 'jarron_glide';
+  if (k === 'jarron' && P.dash > 0) return 'jarron_dash';
+  if (!P.onGround) return k + (P.vy < 0 ? '_jump' : '_fall');
+  if (Math.abs(P.vx) > 0.6) { P.runT = (P.runT || 0) + Math.abs(P.vx) * 0.06; return k + '_run' + (1 + Math.floor(P.runT) % 4); }
+  P.runT = 0;
+  return k === 'ronin' ? (Math.floor(tick / 40) % 2 ? 'ronin_idle2' : 'ronin_idle') : 'jarron_idle';
+}
 function drawHero(P, x, y) {
-  const key = S.hero, set = SPR[key];
-  let fr = 'stand';
-  if (!P.onGround) fr = 'air'; else if (Math.abs(P.vx) > 0.6) fr = (Math.floor(tick / 6) % 2) ? 'run1' : 'run2';
-  const img = set[fr][P.face > 0 ? 'r' : 'l'];
-  if (P.glide > 0) { const pl = SPR.plane[P.face > 0 ? 'r' : 'l']; ctx.shadowColor = '#00ff66'; ctx.shadowBlur = 14; ctx.drawImage(pl, x + 11 - pl.width / 2, y + 34); ctx.shadowBlur = 0; }
-  if (P.inv > 0 && Math.floor(P.inv / 4) % 2) ctx.globalAlpha = 0.4;
-  ctx.drawImage(img, Math.round(x - 5), Math.round(y));
+  if (P.inv > 0 && Math.floor(P.inv / 4) % 2) ctx.globalAlpha = 0.45;
+  const fr = heroFrame(P), fx = x + P.w / 2, fy = y + P.h + (fr === 'jarron_glide' ? 10 : 0);
+  const breathe = (fr === 'jarron_idle' && Math.floor(tick / 30) % 2) ? 1 : 0;
+  // soft rim glow so dark outfits read on night backgrounds
+  ctx.shadowColor = S.hero === 'ronin' ? 'rgba(255,216,74,.55)' : 'rgba(0,255,102,.55)'; ctx.shadowBlur = 6;
+  const ok = spr(fr, fx, fy + breathe, P.face < 0, 1, 1 - breathe / 62);
+  ctx.shadowBlur = 0;
+  if (!ok) { // procedural fallback
+    const set = SPR[S.hero]; let f = 'stand';
+    if (!P.onGround) f = 'air'; else if (Math.abs(P.vx) > 0.6) f = (Math.floor(tick / 6) % 2) ? 'run1' : 'run2';
+    if (P.glide > 0) { const pl = SPR.plane[P.face > 0 ? 'r' : 'l']; ctx.drawImage(pl, x + 11 - pl.width / 2, y + 34); }
+    ctx.drawImage(set[f][P.face > 0 ? 'r' : 'l'], Math.round(x - 5), Math.round(y));
+  }
+  if (P.dash > 0) { ctx.globalAlpha = 0.25; spr(fr, fx - P.face * 14, fy, P.face < 0); spr(fr, fx - P.face * 28, fy, P.face < 0); }
   ctx.globalAlpha = 1;
 }
 function drawPlay() {
@@ -1069,9 +1174,15 @@ function drawPlay() {
     const x = Math.round(e.x - cx), y = Math.round(e.y - cy);
     if (x < -120 || x > W + 120 || y < -200 || y > H + 200) continue;
     switch (e.type) {
-      case 'pick': { const img = SPR[e.cur]; ctx.drawImage(img, x + 8 - img.width / 2, y + 8 - img.height / 2 + Math.sin(e.bob) * 3); break; }
+      case 'pick': {
+        const nm = e.cur === 'goods' ? 'crate' : e.cur, by = y + 16 + Math.sin(e.bob) * 3;
+        const sx = e.cur === 'coin' ? Math.max(0.15, Math.abs(Math.cos(e.bob * 0.7))) : 1;
+        ctx.shadowColor = { coin: '#ffd84a', bill: '#5fe08a', credit: '#00f3ff', chip: '#b48cff', goods: '#c08a3a' }[e.cur]; ctx.shadowBlur = 8;
+        if (!spr(nm, x + 8, by, false, sx, 1)) { const img = SPR[e.cur]; ctx.drawImage(img, x + 8 - img.width / 2, y + 8 - img.height / 2 + Math.sin(e.bob) * 3); }
+        ctx.shadowBlur = 0; break; }
       case 'sign': { ctx.font = 'bold 11px "Courier New",monospace'; const w = ctx.measureText(e.text).width + 14; ctx.fillStyle = 'rgba(0,0,0,.72)'; ctx.fillRect(x - 4, y - 10, w, 20); ctx.strokeStyle = '#00f3ff88'; ctx.lineWidth = 1; ctx.strokeRect(x - 4, y - 10, w, 20); txt(e.text, x + 3, y, '#bff', 11); ctx.fillStyle = '#334'; ctx.fillRect(x + 8, y + 10, 3, e.floorY - e.y - 10); break; }
       case 'vault': {
+        if (sprH('vault')) { ctx.shadowColor = e.saved ? '#00ff66' : '#ffd84a'; ctx.shadowBlur = 12 + Math.sin(tick * 0.1) * 6; spr('vault', x + e.w / 2, y + e.h); ctx.shadowBlur = 0; txt(e.saved ? 'SAVED' : 'VAULT', x + 20, y - 8, e.saved ? '#00ff66' : '#ffd84a', 11, 'center', true); break; }
         ctx.fillStyle = '#2a2a1a'; ctx.fillRect(x, y, e.w, e.h); ctx.strokeStyle = e.saved ? '#00ff66' : '#ffd84a'; ctx.lineWidth = 3; ctx.shadowColor = ctx.strokeStyle; ctx.shadowBlur = 14 + Math.sin(tick * 0.1) * 6; ctx.strokeRect(x + 2, y + 2, e.w - 4, e.h - 4); ctx.shadowBlur = 0;
         ctx.beginPath(); ctx.arc(x + 20, y + 26, 11, 0, 7); ctx.stroke(); for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + tick * 0.02; ctx.beginPath(); ctx.moveTo(x + 20, y + 26); ctx.lineTo(x + 20 + Math.cos(a) * 11, y + 26 + Math.sin(a) * 11); ctx.stroke(); }
         txt(e.saved ? 'SAVED' : 'VAULT', x + 20, y - 8, e.saved ? '#00ff66' : '#ffd84a', 11, 'center', true); break;
@@ -1084,11 +1195,12 @@ function drawPlay() {
       }
       case 'station': drawStation(e); break;
       case 'drop': if (S.gig) { ctx.fillStyle = 'rgba(0,255,102,' + (0.25 + Math.sin(tick * 0.15) * 0.15) + ')'; ctx.fillRect(x, y - 300, 32, 364); txt('DROP', x + 16, y - 10, '#00ff66', 12, 'center', true); } else { ctx.fillStyle = '#0a3a1a'; ctx.fillRect(x + 4, y + 50, 24, 14); txt('DROP', x + 16, y + 40, '#2a7a4a', 10, 'center'); } break;
-      case 'devil': if (e.alive) ctx.drawImage(SPR.devil[e.vx > 0 ? 'r' : 'l'], x, y + 2 + (Math.floor(tick / 8) % 2)); break;
+      case 'devil': if (e.alive && !spr('devil', x + e.w / 2, y + e.h + 1 - (Math.floor(tick / 8) % 2), e.vx < 0)) ctx.drawImage(SPR.devil[e.vx > 0 ? 'r' : 'l'], x, y + 2 + (Math.floor(tick / 8) % 2)); break;
       case 'drone': {
         const ax = x + 21, ay = y + 21, d = (S.level.h - 2) * T - e.y;
         ctx.fillStyle = e.seeing ? 'rgba(255,34,68,.28)' : 'rgba(255,255,180,.12)'; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ax - d * 0.38, ay + d); ctx.lineTo(ax + d * 0.38, ay + d); ctx.fill();
-        ctx.drawImage(SPR.drone[e.vx > 0 ? 'r' : 'l'], x, y); break;
+        const gr = ctx.createRadialGradient(ax, ay, 2, ax, ay, 18); gr.addColorStop(0, e.seeing ? 'rgba(255,40,70,.9)' : 'rgba(255,240,180,.7)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = gr; ctx.fillRect(ax - 18, ay - 18, 36, 36);
+        if (!spr('drone', ax, y + 26 + Math.sin(tick * 0.12 + e.min) * 2, e.vx < 0)) ctx.drawImage(SPR.drone[e.vx > 0 ? 'r' : 'l'], x, y); break;
       }
       case 'lift': {
         ctx.fillStyle = '#0a2a3a'; ctx.fillRect(x, y, e.w, e.h); ctx.fillStyle = S.worker > 0 ? '#00f3ff' : '#446'; ctx.fillRect(x, y, e.w, 4);
@@ -1101,13 +1213,11 @@ function drawPlay() {
   if (S.boss) {
     for (const b of S.bshots) { const x = b.x - cx, y = b.y - cy; if (b.kind === 'coin') { ctx.fillStyle = '#ff2244'; ctx.shadowColor = '#ff2244'; ctx.shadowBlur = 10; ctx.beginPath(); ctx.arc(x, y, 7, 0, 7); ctx.fill(); ctx.shadowBlur = 0; txt('$', x, y, '#300', 10, 'center'); } else { ctx.fillStyle = '#f0e0b0'; ctx.fillRect(x - 8, y - 10, 16, 20); ctx.fillStyle = '#c8102e'; ctx.fillRect(x - 5, y + 4, 10, 3); ctx.fillStyle = '#7a5a3a'; ctx.fillRect(x - 5, y - 6, 10, 2); ctx.fillRect(x - 5, y - 2, 10, 2); } }
   }
-  for (const s of S.shots) { const x = s.x - cx, y = s.y - cy; if (s.kind === 'coin') { ctx.save(); ctx.translate(x, y); ctx.rotate(tick * 0.4); ctx.drawImage(SPR.coin, -8, -8); ctx.restore(); } else { const pl = SPR.plane[s.vx > 0 ? 'r' : 'l']; ctx.drawImage(pl, x - pl.width / 2, y - pl.height / 2); } }
+  for (const s of S.shots) { const x = s.x - cx, y = s.y - cy; if (s.kind === 'coin') { if (!spr('coin', x, y + 7, false, Math.max(0.2, Math.abs(Math.cos(tick * 0.5))) * 0.7, 0.7)) ctx.drawImage(SPR.coin, x - 8, y - 8); } else { const pl = SPR.plane[s.vx > 0 ? 'r' : 'l']; ctx.drawImage(pl, x - pl.width / 2, y - pl.height / 2); } }
   if (S.ride) {
     const r = S.ride, x = r.cx - cx, y = r.cy - cy;
-    ctx.fillStyle = '#ffd000'; ctx.fillRect(x - 34, y - 6, 68, 22); ctx.fillStyle = '#222'; ctx.fillRect(x - 20, y - 16, 40, 12); ctx.fillStyle = '#00f3ff'; ctx.fillRect(x - 16, y - 14, 12, 8); ctx.fillRect(x + 4, y - 14, 12, 8);
-    ctx.drawImage(SPR[S.hero].stand.r, 0, 0, 32, 20, x - 10, y - 26, 32, 20);
+    if (!spr('taxi', x, y + 22, r.tx < r.sx)) { ctx.fillStyle = '#ffd000'; ctx.fillRect(x - 34, y - 6, 68, 22); }
     for (let k = 0; k < 3; k++) S.parts.push({ x: r.cx - 30 + Math.random() * 60, y: r.cy + 18, vx: 0, vy: 1.5, t: 14, col: '#00f3ff' });
-    txt('TAXI', x, y + 5, '#111', 11, 'center');
   } else if (!(S.boss && S.boss.dead && S.boss.deadT > 230)) drawHero(P, P.x - cx, P.y - cy);
   for (const p of S.parts) { ctx.fillStyle = p.col; ctx.globalAlpha = Math.min(1, p.t / 20); ctx.fillRect(Math.round(p.x - cx), Math.round(p.y - cy), 3, 3); }
   ctx.globalAlpha = 1;
@@ -1125,7 +1235,11 @@ function drawHUD() {
     const x = 6 + i * 104, act = S.hero === k, h = HERO[k];
     ctx.fillStyle = act ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.3)'; ctx.fillRect(x, 4, 100, 50);
     ctx.strokeStyle = act ? h.col : '#333'; ctx.lineWidth = 2; ctx.strokeRect(x + 1, 5, 98, 48);
-    ctx.globalAlpha = act ? 1 : 0.45; ctx.drawImage(SPR[k].stand.r, 0, 0, 32, 30, x + 4, 10, 32, 30); ctx.globalAlpha = 1;
+    ctx.globalAlpha = act ? 1 : 0.45;
+    const fA = ATLAS && atlasReady && ATLAS[k + '_idle'];
+    if (fA) { ctx.save(); ctx.beginPath(); ctx.rect(x + 3, 7, 34, 44); ctx.clip(); ctx.drawImage(atlasImg, fA.x, fA.y, fA.w, 22, x + 20 - fA.w * 0.8, 8, fA.w * 1.6, 44); ctx.restore(); }
+    else ctx.drawImage(SPR[k].stand.r, 0, 0, 32, 30, x + 4, 10, 32, 30);
+    ctx.globalAlpha = 1;
     txt(h.name, x + 40, 16, act ? h.col : '#777', 11); txt((k === 'ronin' ? 'E: STACK' : 'E: GLIDE'), x + 40, 31, act ? '#fff' : '#555', 10); txt(act ? '◆ ACTIVE' : 'TAB swap', x + 40, 45, act ? h.col : '#555', 9);
   });
   txt('WALLET', 222, 14, '#998', 10); txt(money(S.wallet), 222, 36, '#ffd84a', 22, 'left', '#b8860b');
@@ -1207,7 +1321,9 @@ function drawTitle() {
   logo(W / 2, 92, 1);
   txt('A 2D PIXEL-ART CO-OP TAG-TEAM PLATFORMER · NEW SACRAMENTO 2070', W / 2, 160, '#bfe', 12, 'center');
   ctx.save(); ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(SPR.ronin.stand.r, 210, 196, 96, 138); ctx.drawImage(SPR.jarron.stand.l, 654, 196, 96, 138); ctx.restore();
+  if (sprH('ronin_idle')) { ctx.shadowColor = '#ffd84a'; ctx.shadowBlur = 16; spr(Math.floor(tick / 40) % 2 ? 'ronin_idle2' : 'ronin_idle', 258, 336, false, 2.4); ctx.shadowColor = '#00ff66'; spr('jarron_idle', 702, 336 + (Math.floor(tick / 30) % 2), true, 2.4); ctx.shadowBlur = 0; }
+  else { ctx.drawImage(SPR.ronin.stand.r, 210, 196, 96, 138); ctx.drawImage(SPR.jarron.stand.l, 654, 196, 96, 138); }
+  ctx.restore();
   for (let i = 0; i < 14; i++) ctx.drawImage(SPR.coin, 300 + i * 26 + (i % 2) * 6, 330 - (i % 3) * 3);
   txt('RONIN VII', 258, 350, '#f5c542', 14, 'center', true); txt('THE STACKER', 258, 366, '#998', 10, 'center');
   txt('JARRON X', 702, 350, '#00ff66', 14, 'center', true); txt('THE HUSTLER', 702, 366, '#998', 10, 'center');
@@ -1295,7 +1411,7 @@ function step() {
   for (const k in pressed) pressed[k] = false;
 }
 function render() {
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false;
   ctx.clearRect(0, 0, W, H);
   if (S.mode === 'title') drawTitle();
   else if (S.mode === 'select') drawSelect();

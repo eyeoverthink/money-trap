@@ -6,6 +6,7 @@
 
 - Plain JavaScript + HTML5 Canvas, with **0 dependencies**, no build step and no backend
 - 8 playable levels and a boss fight, plus 12 money-as-mechanic systems
+- Hand-cut **pixel-art sprite atlas**: multi-frame Ronin VII & Jarron X animations, a towering Devil Banker boss, NPCs and props (see [Sprites](#-sprites))
 - Soundtrack: **"Money Trap"**, an original song by the creator (toggle it with `M`). Retro sound effects are generated with WebAudio.
 
 ![Gameplay: title, Old Sac coin stacking, Tower Bridge paper-plane glide, Devil Banker boss](screenshots/qc_gameplay.jpg)
@@ -75,6 +76,28 @@ There's nothing to install, and it works offline.
 | 11 | **Borrow** | Instant +$200, +18% DEBT |
 | 12 | **Save** | Bank Vault checkpoints |
 
+## 🎨 Sprites
+
+![Sprite close-ups: Ronin VII, Jarron X glide, the Devil Banker, merchant, dealer, crew worker, flying cab, drone, title heroes](screenshots/qc_sprites_closeup.jpg)
+
+The sprites are made the same way as [Fraymus Quest](https://github.com/eyeoverthink/fraymus-quest): a script cuts them from pose-sheet reference art.
+`tools/build_sprites.py` does the following:
+1. Flood-fills the white background from the border.
+2. Splits the sheet into one connected piece per pose. Stray bits, like a thrown coin or a paper plane, are merged into the nearest pose.
+3. Downscales using only the character's own pixels, so there's no white fringe. A "salient colour" rule keeps the gold `VII`, the green shades and the red eyes visible.
+4. Quantizes each sprite to its own palette and adds a 1-px dark outline.
+5. Packs every frame into `assets/sprites/atlas.png`, plus a `sprites.js` frame table with a feet anchor for each frame.
+
+| Sprite | Frames |
+|---|---|
+| Ronin VII | idle, breathing idle, 4-frame run, jump, fall, **STACK** crouch, throw |
+| Jarron X | idle, 4-frame run, jump, fall, **paper-plane glide**, dash (with afterimages), throw |
+| The Devil Banker | idle (contract + gold `$` cane), attack (hex-coin cast), phase-2 rage (flame aura), white hit-flash for each frame, swirling coin/contract aura |
+| World | street devil, patrol drone (with scan cone), crew worker, casino dealer, market merchant, street beggar, fence, flying taxi, Bank Vault door, ATM, slot terminal, invest kiosk, barter stall, coins, bills, holo-credits, crypto chips, goods crates |
+
+Every sprite is drawn 1:1 with `imageSmoothingEnabled = false`. If the atlas can't load, the game falls back to its built-in procedural pixel sprites.
+To rebuild the atlas: `pip install pillow numpy scipy && python3 tools/build_sprites.py`. The source pose sheets are in `art-src/`.
+
 ## 🗺️ 8 Levels: New Sacramento 2070
 
 | Level | Name | Core tool |
@@ -105,6 +128,10 @@ Frame-by-frame traversal checks also confirmed that every gap, wall, lift, toll,
 
 ```
 index.html                  # canvas + audio shell
+sprites.js                  # generated sprite-atlas frame table
+assets/sprites/atlas.png    # generated pixel-art sprite atlas
+tools/build_sprites.py      # atlas builder (art-src/*.jpg → atlas)
+art-src/                    # pose-sheet source art
 game.js                     # the whole game (sprites, levels, physics, HUD, boss): plain JS, no deps
 assets/money-trap-theme.*   # soundtrack (.m4a + .mp3 fallback)
 screenshots/                # gameplay QC grids + pixel-art sheet
