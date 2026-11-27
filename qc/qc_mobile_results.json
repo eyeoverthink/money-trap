@@ -1,0 +1,208 @@
+[
+  {
+    "name": "landscape",
+    "vp": {
+      "width": 844,
+      "height": 390
+    },
+    "checks": {
+      "viewportMeta": true,
+      "canvasFits": true,
+      "tapStarts": true,
+      "padVisible": true,
+      "rightMoves": true,
+      "slideLeftMoves": true,
+      "multiTouchHeld": true,
+      "jumpWorks": true,
+      "actionWorks": true,
+      "allReleased": true,
+      "swapWorks": true,
+      "actLabelUpdates": true,
+      "pauseWorks": true,
+      "padHiddenInMenu": true,
+      "resumeTapWorks": true
+    },
+    "touchOn": true,
+    "canvas": {
+      "x": 75.5,
+      "y": 0,
+      "width": 693,
+      "height": 390
+    },
+    "rightDx": 124.79999999999978,
+    "leftDx": -102.69999999999982,
+    "multi": {
+      "before": {
+        "mode": "play",
+        "x": 119.3999999999999,
+        "y": 402,
+        "hero": "ronin",
+        "wallet": 310,
+        "stacks": 0,
+        "lvl": 1,
+        "tk": {
+          "ArrowLeft": false,
+          "ArrowRight": true
+        }
+      },
+      "mid": {
+        "mode": "play",
+        "x": 147.29999999999987,
+        "y": 337.25,
+        "hero": "ronin",
+        "wallet": 310,
+        "stacks": 0,
+        "lvl": 1,
+        "tk": {
+          "ArrowLeft": false,
+          "ArrowRight": true,
+          "Space": true
+        }
+      },
+      "mid2": {
+        "mode": "play",
+        "x": 181.3999999999998,
+        "y": 289.95,
+        "hero": "ronin",
+        "wallet": 270,
+        "stacks": 1,
+        "lvl": 1,
+        "tk": {
+          "ArrowLeft": false,
+          "ArrowRight": true,
+          "Space": true,
+          "KeyE": true
+        }
+      },
+      "after": {
+        "mode": "play",
+        "x": 196.7499999999998,
+        "y": 402,
+        "hero": "ronin",
+        "wallet": 270,
+        "stacks": 1,
+        "lvl": 1,
+        "tk": {
+          "ArrowLeft": false,
+          "ArrowRight": false,
+          "Space": false,
+          "KeyE": false
+        }
+      }
+    },
+    "heroes": [
+      "ronin",
+      "jarron"
+    ],
+    "jarronActionWalletDelta": 40,
+    "audio": {
+      "paused": true,
+      "src": "http://127.0.0.1:8765/assets/money-trap-theme.m4a"
+    },
+    "errors": [],
+    "pass": true
+  },
+  {
+    "name": "portrait",
+    "vp": {
+      "width": 390,
+      "height": 844
+    },
+    "checks": {
+      "viewportMeta": true,
+      "canvasFits": true,
+      "tapStarts": true,
+      "padVisible": true,
+      "rightMoves": true,
+      "slideLeftMoves": true,
+      "multiTouchHeld": true,
+      "jumpWorks": true,
+      "actionWorks": true,
+      "allReleased": true,
+      "swapWorks": true,
+      "actLabelUpdates": true,
+      "pauseWorks": true,
+      "padHiddenInMenu": true,
+      "resumeTapWorks": true
+    },
+    "touchOn": true,
+    "canvas": {
+      "x": 0,
+      "y": 52,
+      "width": 390,
+      "height": 219
+    },
+    "rightDx": 124.79999999999978,
+    "leftDx": -102.69999999999982,
+    "multi": {
+      "before": {
+        "mode": "play",
+        "x": 119.3999999999999,
+        "y": 402,
+        "hero": "ronin",
+        "wallet": 310,
+        "stacks": 0,
+        "lvl": 1,
+        "tk": {
+          "ArrowLeft": false,
+          "ArrowRight": true
+        }
+      },
+      "mid": {
+        "mode": "play",
+        "x": 147.29999999999987,
+        "y": 337.25,
+        "hero": "ronin",
+        "wallet": 310,
+        "stacks": 0,
+        "lvl": 1,
+        "tk": {
+          "ArrowLeft": false,
+          "ArrowRight": true,
+          "Space": true
+        }
+      },
+      "mid2": {
+        "mode": "play",
+        "x": 181.3999999999998,
+        "y": 289.95,
+        "hero": "ronin",
+        "wallet": 270,
+        "stacks": 1,
+        "lvl": 1,
+        "tk": {
+          "ArrowLeft": false,
+          "ArrowRight": true,
+          "Space": true,
+          "KeyE": true
+        }
+      },
+      "after": {
+        "mode": "play",
+        "x": 199.8499999999998,
+        "y": 402,
+        "hero": "ronin",
+        "wallet": 270,
+        "stacks": 1,
+        "lvl": 1,
+        "tk": {
+          "ArrowLeft": false,
+          "ArrowRight": false,
+          "Space": false,
+          "KeyE": false
+        }
+      }
+    },
+    "heroes": [
+      "ronin",
+      "jarron"
+    ],
+    "jarronActionWalletDelta": 40,
+    "audio": {
+      "paused": true,
+      "src": "http://127.0.0.1:8765/assets/money-trap-theme.m4a"
+    },
+    "errors": [],
+    "pass": true
+  }
+]

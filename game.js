@@ -22,16 +22,23 @@ function spr(name, x, y, flip, sc, sy) {
 }
 function sprH(name) { return ATLAS && ATLAS[name] ? ATLAS[name].h : 0; }
 
+const IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.matchMedia && matchMedia('(pointer: coarse)').matches);
 function fit() {
-  const s = Math.min(window.innerWidth / W, window.innerHeight / H);
+  const vw = window.innerWidth, vh = window.innerHeight, portrait = vh > vw;
+  document.body.classList.toggle('portrait', portrait);
+  // portrait phones: canvas sits under the top bar, controls live in the free space below it
+  const availH = portrait && document.body.classList.contains('touch-on') ? Math.max(120, vh - 52 - 240) : vh;
+  const s = Math.min(vw / W, availH / H);
   const k = s >= 1 ? Math.floor(s * 4) / 4 : s;
   cv.style.width = Math.round(W * k) + 'px';
   cv.style.height = Math.round(H * k) + 'px';
 }
-window.addEventListener('resize', fit); fit();
+window.addEventListener('resize', fit);
+window.addEventListener('orientationchange', () => setTimeout(fit, 150));
+if (window.visualViewport) visualViewport.addEventListener('resize', fit);
 
 /* ---------------- INPUT ---------------- */
-const keys = {}, pressed = {};
+const keys = {}, pressed = {}, tkeys = {}; // tkeys: held by on-screen touch buttons
 const BLOCK = ['Tab', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight'];
 window.addEventListener('keydown', e => {
   if (BLOCK.includes(e.code)) e.preventDefault();
@@ -40,8 +47,7 @@ window.addEventListener('keydown', e => {
   unlockAudio();
 });
 window.addEventListener('keyup', e => { keys[e.code] = false; });
-cv.addEventListener('mousedown', () => { cv.focus(); unlockAudio(); pressed.Click = true; });
-const down = (...c) => c.some(k => keys[k]);
+const down = (...c) => c.some(k => keys[k] || tkeys[k]);
 const hit = (...c) => c.some(k => pressed[k]);
 const K = {
   left: ['ArrowLeft', 'KeyA'], right: ['ArrowRight', 'KeyD'], up: ['ArrowUp', 'KeyW'], down: ['ArrowDown', 'KeyS'],
@@ -53,11 +59,16 @@ const K = {
 /* ---------------- AUDIO ---------------- */
 const bgm = document.getElementById('bgm');
 let AC = null, musicOn = true, audioUnlocked = false;
+// Called from every user gesture until audio is really running (iOS Safari only unlocks on touchend/click).
 function unlockAudio() {
+  if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; } }
+  if (AC && AC.state === 'suspended' && AC.resume) { const r = AC.resume(); if (r && r.catch) r.catch(() => {}); }
   if (audioUnlocked) return;
-  audioUnlocked = true;
-  try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; }
-  if (musicOn) playMusic();
+  if (!musicOn || !bgm) { audioUnlocked = !!AC && AC.state === 'running'; return; }
+  bgm.volume = 0.55;
+  const p = bgm.play();
+  if (p && p.then) p.then(() => { audioUnlocked = true; }).catch(() => {});
+  else audioUnlocked = true;
 }
 function playMusic() {
   if (!bgm) return;
@@ -1334,10 +1345,12 @@ function drawTitle() {
     txt((sel ? '▶ ' : '  ') + label, W / 2, y, sel ? '#00ff66' : '#dde', 15, 'center', sel);
   });
   panel(110, 392, 740, 104, '#ffd84a33', 'rgba(0,0,0,.65)');
-  const C = ['←/→ A/D move · SPACE/W jump · TAB/Q tag-switch (even mid-jump)', 'E/SHIFT ability: RONIN STACK coins ($40, hold to keep stacking) · JARRON paper-plane GLIDE ($25) / dash ($10)', 'X throw (Ronin coin $15 · Jarron homing plane $25) · F use station · B borrow · G beg', 'One shared WALLET · one DEBT METER — hit 100% DEBT and you are TRAPPED.'];
+  const TOUCH = document.body.classList.contains('touch-on');
+  const C = TOUCH ? ['TOUCH: ◀ ▶ move (slide your thumb) · JUMP · SWAP tag-switch (even mid-jump)', 'STACK / GLIDE button: RONIN coin STACK ($40, hold to keep stacking) · JARRON paper-plane GLIDE ($25) / dash ($10)', 'THROW (Ronin coin $15 · Jarron homing plane $25) · USE station · $ B borrow · 🙏 G beg · ❚❚ pause', 'One shared WALLET · one DEBT METER — hit 100% DEBT and you are TRAPPED.'] : ['←/→ A/D move · SPACE/W jump · TAB/Q tag-switch (even mid-jump)', 'E/SHIFT ability: RONIN STACK coins ($40, hold to keep stacking) · JARRON paper-plane GLIDE ($25) / dash ($10)', 'X throw (Ronin coin $15 · Jarron homing plane $25) · F use station · B borrow · G beg', 'One shared WALLET · one DEBT METER — hit 100% DEBT and you are TRAPPED.'];
   C.forEach((c, i) => txt(c, W / 2, 410 + i * 22, i === 3 ? '#ff6680' : '#cde', 12, 'center'));
   txt('"I gotta be careful, can\'t let the evil of the money trap, can\'t let them devils get me."', W / 2, 512, '#ffd84a', 11, 'center');
-  txt('ENTER select · ↑↓ choose · M music · 1-8 jump to level', W / 2, 530, '#667', 10, 'center');
+  if (TOUCH) txt('TAP ANYWHERE TO START · tap a menu row to choose · ♪ M music · 🎮 hide controls', W / 2, 530, (tick >> 5) % 2 ? '#00ff66' : '#9fc', 11, 'center', true);
+  else txt('ENTER select · ↑↓ choose · M music · 1-8 jump to level', W / 2, 530, '#667', 10, 'center');
 }
 function updateTitle() {
   if (hit(...K.up)) S.menuIdx = (S.menuIdx + 2) % 3;
@@ -1405,7 +1418,7 @@ function step() {
     case 'play': if (S.modal) { updateModal(); if (S.toastMsg && --S.toastMsg.t <= 0) S.toastMsg = null; } else updatePlay(); break;
     case 'pause': updatePause(); break;
     case 'clear': S.clearT++; if (S.clearT > 30 && hit(...K.ok, 'Space', 'Click')) { if (S.levelNo < 8) loadLevel(S.levelNo + 1, true); else { S.mode = 'title'; } } break;
-    case 'trapped': S.trapT++; if (S.trapT > 150 || (S.trapT > 40 && hit(...K.ok, 'Space'))) escapeTrap(); break;
+    case 'trapped': S.trapT++; if (S.trapT > 150 || (S.trapT > 40 && hit(...K.ok, 'Space', 'Click'))) escapeTrap(); break;
     case 'victory': S.clearT++; updateWorld(); if (S.clearT > 60 && hit(...K.ok, 'Space', 'Click')) { S.mode = 'title'; S.menuIdx = 0; } break;
   }
   for (const k in pressed) pressed[k] = false;
@@ -1429,11 +1442,126 @@ function frame(now) {
   let n = 0;
   while (acc >= 1000 / 60 && n < 5) { step(); acc -= 1000 / 60; n++; }
   render();
+  syncTouchUI();
   requestAnimationFrame(frame);
 }
 buildBG('oldsac');
 requestAnimationFrame(frame);
 cv.focus();
+
+/* ---------------- TOUCH / MOBILE CONTROLS ---------------- */
+const BODY = document.body;
+let tcOn = IS_TOUCH;
+try { const v = localStorage.getItem('mt2070_touch'); if (v !== null) tcOn = v === '1'; } catch (e) {}
+BODY.classList.toggle('touch-on', tcOn);
+if (IS_TOUCH) { BODY.classList.add('show-rot'); setTimeout(() => BODY.classList.remove('show-rot'), 12000); }
+fit();
+
+// holders[code] = Set of pointer tokens currently holding that virtual key (true multi-touch)
+const holders = {};
+function setHold(code, token, on) {
+  const h = holders[code] || (holders[code] = new Set());
+  const was = h.size > 0;
+  if (on) h.add(token); else h.delete(token);
+  const now = h.size > 0;
+  if (now && !was) pressed[code] = true;
+  tkeys[code] = now;
+}
+function releaseAllTouch() {
+  for (const c in holders) { holders[c].clear(); tkeys[c] = false; }
+  padPtrs.clear();
+  document.querySelectorAll('#tc .on').forEach(el => el.classList.remove('on'));
+}
+const gesture = e => { unlockAudio(); };
+
+// generic buttons (actions + top bar)
+document.querySelectorAll('#tc [data-code]').forEach(el => {
+  const code = el.dataset.code, ptrs = new Set();
+  const up = e => {
+    if (!ptrs.has(e.pointerId)) return;
+    ptrs.delete(e.pointerId); setHold(code, 'b' + e.pointerId, false);
+    if (!ptrs.size) el.classList.remove('on');
+    unlockAudio();
+  };
+  el.addEventListener('pointerdown', e => {
+    e.preventDefault(); e.stopPropagation();
+    try { el.setPointerCapture(e.pointerId); } catch (err) {}
+    ptrs.add(e.pointerId); el.classList.add('on'); setHold(code, 'b' + e.pointerId, true);
+    unlockAudio(); cv.focus();
+  });
+  el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('lostpointercapture', up);
+});
+
+// d-pad: one surface, each finger is tracked by pointerId and can slide between ◀ and ▶
+const pad = document.getElementById('pad'), padL = pad.querySelector('.l'), padR = pad.querySelector('.r');
+const padPtrs = new Map();
+function padUpdate() {
+  let l = false, r = false;
+  padPtrs.forEach(side => { if (side === 'l') l = true; else r = true; });
+  setHold('ArrowLeft', 'pad', l); setHold('ArrowRight', 'pad', r);
+  padL.classList.toggle('on', l); padR.classList.toggle('on', r);
+}
+function padSide(e) { const rc = pad.getBoundingClientRect(); return e.clientX < rc.left + rc.width / 2 ? 'l' : 'r'; }
+pad.addEventListener('pointerdown', e => {
+  e.preventDefault(); e.stopPropagation();
+  try { pad.setPointerCapture(e.pointerId); } catch (err) {}
+  padPtrs.set(e.pointerId, padSide(e)); padUpdate(); unlockAudio(); cv.focus();
+});
+pad.addEventListener('pointermove', e => { if (padPtrs.has(e.pointerId)) { const sd = padSide(e); if (sd !== padPtrs.get(e.pointerId)) { padPtrs.set(e.pointerId, sd); padUpdate(); } } });
+const padUp = e => { if (padPtrs.delete(e.pointerId)) padUpdate(); unlockAudio(); };
+pad.addEventListener('pointerup', padUp); pad.addEventListener('pointercancel', padUp); pad.addEventListener('lostpointercapture', padUp);
+
+// show / hide toggle (works on desktop too)
+document.getElementById('tcToggle').addEventListener('pointerdown', e => {
+  e.preventDefault(); e.stopPropagation();
+  tcOn = !BODY.classList.contains('touch-on');
+  BODY.classList.toggle('touch-on', tcOn); releaseAllTouch(); fit(); unlockAudio();
+  try { localStorage.setItem('mt2070_touch', tcOn ? '1' : '0'); } catch (err) {}
+  toast(tcOn ? 'TOUCH CONTROLS ON' : 'TOUCH CONTROLS HIDDEN', '#00f3ff');
+});
+document.getElementById('rot').addEventListener('pointerdown', e => { e.preventDefault(); BODY.classList.remove('show-rot'); unlockAudio(); });
+
+// tapping the canvas: start from title, pick menu rows, choose levels, answer station menus, continue screens
+function canvasPt(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; }
+function onCanvasTap(p) {
+  const m = S.mode;
+  if (m === 'title') {
+    for (let i = 0; i < TITLE_OPTS.length; i++) if (Math.abs(p.y - (214 + i * 38)) <= 17 && Math.abs(p.x - W / 2) <= 160) { S.menuIdx = i; pressed.Enter = true; return; }
+    S.menuIdx = 0; pressed.Click = true; return;
+  }
+  if (m === 'select') {
+    for (let i = 0; i < 8; i++) { const cx = 40 + (i % 4) * 225, cy = 136 + Math.floor(i / 4) * 170; if (p.x >= cx && p.x <= cx + 205 && p.y >= cy && p.y <= cy + 150) { S.selIdx = i; pressed.Enter = true; return; } }
+    return;
+  }
+  if (m === 'pause') {
+    const h = 120 + 2 * 22 + PAUSE_OPTS.length * 30, y0 = H / 2 - h / 2 + 40 + 44 + 2 * 22 + 6;
+    for (let i = 0; i < PAUSE_OPTS.length; i++) if (Math.abs(p.y - (y0 + i * 30)) <= 15 && Math.abs(p.x - W / 2) <= 220) { S.menuIdx = i; pressed.Enter = true; return; }
+    return;
+  }
+  if (m === 'play' && S.modal) {
+    const md = S.modal, h = 84 + md.body.length * 18 + md.opts.length * 26, y0 = H / 2 - h / 2 + 24 + 28 + md.body.length * 18 + 8;
+    for (let i = 0; i < md.opts.length; i++) if (Math.abs(p.y - (y0 + i * 26)) <= 13 && Math.abs(p.x - W / 2) <= 260) { S.menuIdx = i; pressed.Enter = true; return; }
+    if (Math.abs(p.x - W / 2) > 290 || Math.abs(p.y - H / 2) > h / 2) pressed.Escape = true; // tap outside closes
+    return;
+  }
+  if (m === 'clear' || m === 'victory' || m === 'trapped') { pressed.Click = true; return; }
+}
+cv.addEventListener('pointerdown', e => { e.preventDefault(); cv.focus(); unlockAudio(); onCanvasTap(canvasPt(e)); });
+cv.addEventListener('pointerup', gesture);
+document.addEventListener('touchend', gesture, { passive: true });
+document.addEventListener('click', gesture);
+// no scrolling, rubber-banding, pinch or double-tap zoom while playing
+document.addEventListener('touchmove', e => { if (e.cancelable) e.preventDefault(); }, { passive: false });
+['gesturestart', 'gesturechange', 'dblclick', 'contextmenu'].forEach(t => document.addEventListener(t, e => e.preventDefault(), { passive: false }));
+window.addEventListener('blur', releaseAllTouch);
+
+let lastMenu = null, lastHero = null;
+const actLbl = document.getElementById('actLbl');
+function syncTouchUI() {
+  const menu = S.mode !== 'play' || !!S.modal;
+  if (menu !== lastMenu) { lastMenu = menu; BODY.classList.toggle('menu-mode', menu); if (menu) releaseAllTouch(); }
+  if (S.hero !== lastHero) { lastHero = S.hero; actLbl.textContent = S.hero === 'jarron' ? 'GLIDE' : 'STACK'; }
+}
 
 /* ---------------- TEST / DEV HOOKS ---------------- */
 window.MT = {
@@ -1441,5 +1569,6 @@ window.MT = {
   press(code) { pressed[code] = true; keys[code] = true; },
   release(code) { keys[code] = false; },
   get mode() { return S.mode; },
+  get tkeys() { return { ...tkeys }; },
 };
 })();

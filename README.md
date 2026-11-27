@@ -11,6 +11,17 @@
 
 ![Gameplay: title, Old Sac coin stacking, Tower Bridge paper-plane glide, Devil Banker boss](screenshots/qc_gameplay.jpg)
 
+## 📱 Play it on your phone (no computer needed)
+
+**▶ [money-trap-2070.vercel.app](https://money-trap-2070.vercel.app)**: open it in Safari (iPhone) or Chrome (Android). Tap anywhere on the title screen to start. That same tap also turns on the soundtrack.
+
+- On touch devices, translucent cyberpunk touch controls show up automatically. Desktop players can show or hide them with the 🎮 button.
+- It plays in **landscape and portrait**. In portrait the game sits at the top and the controls sit underneath it. You'll get a small "rotate for best view" hint, and you can dismiss it.
+- Multi-touch works: you can hold ▶ while you hit JUMP and STACK/GLIDE at the same time. You can also slide your thumb between ◀ and ▶ without lifting it.
+- Tip: use *Share → Add to Home Screen* to get a full-screen, app-like launch.
+
+![Mobile touch controls: iPhone landscape](screenshots/qc_mobile_landscape.jpg)
+
 ## ▶️ Run it locally
 
 ```bash
@@ -51,6 +62,19 @@ There's nothing to install, and it works offline.
 | `M` | Turn the soundtrack on or off |
 | `Esc` / `P` | Pause: resume / restart / level select / title |
 | `1`–`8` | On the title or level-select screen, jump straight to a level |
+
+**Touch controls (phones and tablets)**
+
+| Button | Action |
+|---|---|
+| ◀ ▶ (bottom-left) | Move. Slide your thumb between them |
+| **JUMP** (big gold) | Jump (hold it to jump higher) |
+| **STACK / GLIDE** | Ability. The label follows the active hero: Ronin STACK (hold to keep stacking), Jarron GLIDE / dash |
+| **SWAP** | Tag-switch Ronin VII ↔ Jarron X (works mid-jump) |
+| **THROW** · **USE** | Throw a coin or paper plane · use the station you're at |
+| `$ B` · `🙏 G` (top bar) | Borrow · beg |
+| `↵ OK` · `♪ M` · `❚❚` · `🎮` | Confirm/continue · soundtrack · pause/back · show or hide the touch controls |
+| Tap the screen | Start from the title. Pick menu rows, levels and station options. Continue after a level clear, TRAPPED or victory. Tap outside a station menu to close it |
 
 ## 💸 Core rules
 
@@ -121,6 +145,8 @@ The game was tested in headless Chromium with Playwright. It passed 32/32 checks
 - level select and the pause menu
 - the gamble terminals, borrowing, the Investment Tower lifts and the flying cabs
 - boss damage and the victory screen, TRAPPED and the restore, and the music toggle
+
+**Mobile:** Playwright ran on iPhone 14 emulation in landscape (844×390) and portrait (390×844), with `hasTouch` on. All 15 of 15 checks passed in each orientation, with zero console or JS errors. The checks covered tap-to-start, holding ▶, sliding to ◀, holding ▶ while pressing JUMP and STACK with multi-touch, swapping, the action label following the active hero, pausing and resuming by tap, and the canvas fitting the screen. The live Vercel URL also passed the same suite. (`qc/qc_mobile_results.json`, `qc/qc_mobile_live_results.json`)
 
 Frame-by-frame traversal checks also confirmed that every gap, wall, lift, toll, key and keycard exit can be completed.
 
